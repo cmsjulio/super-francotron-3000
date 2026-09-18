@@ -1,75 +1,123 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-import urllib.parse
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+import urllib.parse
 
-# Módulos locais desacoplados
 import db
 import tts_service
 
 PORTA = 8000
+FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+
 
 class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
+        caminho = parsed_url.path
         params = urllib.parse.parse_qs(parsed_url.query)
         texto_id = params.get("id", [None])[0]
 
-        # 1. Rota para gerar/obter metadados do áudio: /audio?id=1
-        if parsed_url.path == "/gerar":
-            if not texto_id:
-                self._responder_json(400, {"erro": "Parâmetro 'id' é obrigatório."})
-                return
-
-            texto = db.obter_texto_por_id(texto_id)
-            if not texto:
-                self._responder_json(404, {"erro": f"ID {texto_id} não encontrado no banco de dados."})
-                return
-
-            try:
-                # Chama a interface do Piper
-                caminho_audio = tts_service.sintetizar_audio(texto=texto, texto_id=texto_id)
-
-                self._responder_json(200, {
-                    "status": "sucesso",
-                    "id": texto_id,
-                    "texto": texto,
-                    "arquivo": caminho_audio.name,
-                    "url_reproducao": f"/tocar?id={texto_id}"
-                })
-            except Exception as e:
-                self._responder_json(500, {"erro": str(e)})
+        # 1. API: Listar todos os textos existentes
+        if caminho == "/api/textos":
+            dados = db.carregar_todos()
+            self._responder_json(200, dados)
             return
 
-        # 2. Rota para ouvir/transmitir o arquivo WAV diretamente: /tocar?id=1
-        elif parsed_url.path == "/tocar":
+        # 2. API: Tocar / Transmitir áudio por ID
+        elif caminho == "/api/tocar":
             if not texto_id:
-                self._responder_json(400, {"erro": "Parâmetro 'id' é obrigatório."})
+                self._responder_json(
+                    400, {"erro": "Parâmetro 'id' é obrigatório."}
+                )
                 return
 
             texto = db.obter_texto_por_id(texto_id)
             if not texto:
-                self._responder_json(404, {"erro": "Texto não cadastrado."})
+                self._responder_json(
+                    404, {"erro": f"ID {texto_id} não encontrado."}
+                )
                 return
 
-            caminho_audio = tts_service.DEFAULT_OUTPUT_DIR / f"texto_de_id-{texto_id}.wav"
-            
-            # Se ainda não existe fisicamente, sintetiza sob demanda
+            caminho_audio = (
+                tts_service.DEFAULT_OUTPUT_DIR / f"texto_de_id-{texto_id}.wav"
+            )
             if not caminho_audio.exists():
-                caminho_audio = tts_service.sintetizar_audio(texto=texto, texto_id=texto_id)
+                caminho_audio = tts_service.sintetizar_audio(
+                    texto=texto, texto_id=texto_id
+                )
 
-            # Envia o arquivo de áudio binário
             self.send_response(200)
             self.send_header("Content-Type", "audio/wav")
             self.send_header("Content-Length", str(caminho_audio.stat().st_size))
             self.end_headers()
-
             with open(caminho_audio, "rb") as f:
                 self.wfile.write(f.read())
             return
 
-        # Rota padrão / 404
+        # 3. Servir arquivos estáticos do Frontend
+        if caminho == "/" or caminho == "":
+            caminho = "/index.html"
+
+        arquivo_estatico = FRONTEND_DIR / caminho.lstrip("/")
+        if (
+            arquivo_estatico.resolve().is_relative_to(FRONTEND_DIR)
+            and arquivo_estatico.exists()
+            and arquivo_estatico.is_file()
+        ):
+            extensoes = {
+                ".html": "text/html; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                ".js": "application/javascript; charset=utf-8",
+            }
+            content_type = extensoes.get(
+                arquivo_estatico.suffix, "application/octet-stream"
+            )
+
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header(
+                "Content-Length", str(arquivo_estatico.stat().st_size)
+            )
+            self.end_headers()
+            with open(arquivo_estatico, "rb") as f:
+                self.wfile.write(f.read())
+            return
+
+        self._responder_json(404, {"erro": "Arquivo ou rota não encontrada."})
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+
+        # Rota para cadastrar novos textos
+        if parsed_url.path == "/api/textos":
+            tamanho = int(self.headers.get("Content-Length", 0))
+            corpo_raw = self.rfile.read(tamanho).decode("utf-8")
+
+            try:
+                payload = json.loads(corpo_raw)
+                texto = payload.get("texto", "").strip()
+                if not texto:
+                    self._responder_json(
+                        400, {"erro": "O campo 'texto' não pode ser vazio."}
+                    )
+                    return
+
+                novo_id = db.salvar_novo_texto(texto)
+                self._responder_json(
+                    201,
+                    {
+                        "status": "criado",
+                        "id": novo_id,
+                        "texto": texto,
+                    },
+                )
+            except json.JSONDecodeError:
+                self._responder_json(400, {"erro": "JSON inválido."})
+            except Exception as e:
+                self._responder_json(500, {"erro": str(e)})
+            return
+
         self._responder_json(404, {"erro": "Rota não encontrada."})
 
     def _responder_json(self, status_code: int, payload: dict):
@@ -82,6 +130,7 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    FRONTEND_DIR.mkdir(exist_ok=True)
     servidor = HTTPServer(("", PORTA), SuperFrancotronHandler)
-    print(f"Super Francotron 3000 online em http://localhost:{PORTA}")
+    print(f"Super Francotron 3000 pronto em http://localhost:{PORTA}")
     servidor.serve_forever()

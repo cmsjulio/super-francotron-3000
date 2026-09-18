@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Francotron 3000</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Super Francotron 3000</h1>
+      <p>Synthèse vocale locale en français (Piper TTS)</p>
+    </header>
+
+    <section class="card">
+      <h2>Nouveau Texte</h2>
+      <form id="form-texto">
+        <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
+        <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-header">
+        <h2>Bibliothèque de Textes</h2>
+        <button id="btn-atualizar" class="btn-secundario">Rafraîchir</button>
+      </div>
+
+      <div id="status-player" class="player-container">
+        <span id="player-label">Sélectionnez un texte ci-dessous :</span>
+        <audio id="audio-player" controls preload="none"></audio>
+      </div>
+
+      <ul id="lista-textos" class="lista"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
