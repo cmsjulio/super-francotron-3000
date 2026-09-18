@@ -11,20 +11,21 @@ def sintetizar_audio_bytes(
     length_scale: float = 1.2,
     sentence_silence: float = 0.6,
 ) -> bytes:
-    """Sintetiza o texto em áudio WAV e devolve os bytes brutos em memória."""
+    """
+    Sintetiza o texto em áudio WAV com cabeçalho RIFF completo
+    e devolve os bytes brutos em memória diretamente do stdout.
+    """
     model = Path(model_path)
     if not model.exists():
         raise FileNotFoundError(f"Modelo não encontrado em: {model}")
 
-    # Ao omitir --output_file, o piper cospe o stream WAV direto no stdout
+    # O segredo é '--output_file', '-' que força a inclusão do header WAV no stdout
     comando = [
         "piper",
-        "--model",
-        str(model),
-        "--length_scale",
-        str(length_scale),
-        "--sentence_silence",
-        str(sentence_silence),
+        "--model", str(model),
+        "--length_scale", str(length_scale),
+        "--sentence_silence", str(sentence_silence),
+        "--output_file", "-"
     ]
 
     process = subprocess.run(
@@ -32,13 +33,11 @@ def sintetizar_audio_bytes(
         input=texto.encode("utf-8"),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        check=False,
+        check=False
     )
 
     if process.returncode != 0:
         erro_msg = process.stderr.decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Erro na execução do Piper (código {process.returncode}): {erro_msg}"
-        )
+        raise RuntimeError(f"Erro no Piper (código {process.returncode}): {erro_msg}")
 
     return process.stdout

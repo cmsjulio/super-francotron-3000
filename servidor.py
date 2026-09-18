@@ -18,7 +18,6 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
 def decodificar_jwt_payload(token: str) -> dict:
-    """Decodifica o payload do token JWT sem dependências externas."""
     try:
         partes = token.split(".")
         if len(partes) != 3:
@@ -36,9 +35,8 @@ def requisicao_supabase(
     endpoint: str,
     metodo: str = "GET",
     dados: dict = None,
-    headers_extras: dict = None,
+    headers_extras: dict = None
 ):
-    """Executa requisições REST autenticadas com a Service Role Key."""
     url = f"{SUPABASE_URL}/rest/v1/{endpoint.lstrip('/')}"
     req = urllib.request.Request(url, method=metodo)
     req.add_header("apikey", SUPABASE_KEY)
@@ -67,24 +65,18 @@ def requisicao_supabase(
 
 
 def obter_usuario_supabase(token: str):
-    """Valida o token JWT e confirma a identidade do usuário."""
     payload = decodificar_jwt_payload(token)
     if not payload:
-        print("[Auth] Payload do token inválido ou corrompido.")
         return None
 
-    # Valida expiração
     exp = payload.get("exp", 0)
     if time.time() > exp:
-        print(f"[Auth] Token expirado em {exp} (atual: {int(time.time())}).")
         return None
 
     user_id = payload.get("sub")
     if not user_id:
-        print("[Auth] Token não contém 'sub' (User ID).")
         return None
 
-    # Tenta validação via Admin API do Supabase usando a Service Role Key
     url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
     req = urllib.request.Request(url, method="GET")
     req.add_header("apikey", SUPABASE_KEY)
@@ -94,21 +86,13 @@ def obter_usuario_supabase(token: str):
     try:
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        print(f"[Auth Admin] Falha na verificação de usuário ({e.code}).")
-        # Se for um token válido com audiência autenticada, aceita os dados do payload
-        if payload.get("aud") == "authenticated":
-            return {"id": user_id, "email": payload.get("email", "")}
-        return None
-    except Exception as e:
-        print(f"[Auth Admin] Erro inesperado: {e}")
+    except Exception:
         if payload.get("aud") == "authenticated":
             return {"id": user_id, "email": payload.get("email", "")}
         return None
 
 
 def obter_perfil_usuario(user_id: str):
-    """Consulta o perfil (role) na tabela profiles do Supabase."""
     url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=role"
     req = urllib.request.Request(url, method="GET")
     req.add_header("apikey", SUPABASE_KEY)
@@ -121,7 +105,7 @@ def obter_perfil_usuario(user_id: str):
             if registros:
                 return registros[0].get("role", "USER")
     except Exception as e:
-        print(f"[Profiles] Não foi possível obter o perfil: {e}")
+        print(f"[Profiles] Erro ao obter perfil: {e}")
 
     return "USER"
 
@@ -131,13 +115,11 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
     def _autenticar(self):
         auth_header = self.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            print("[Servidor] Requisição sem cabeçalho Authorization Bearer.")
             return None, None
 
         token = auth_header.split(" ", 1)[1].strip()
         usuario = obter_usuario_supabase(token)
         if not usuario:
-            print("[Servidor] Falha na validação do token do usuário.")
             return None, None
 
         role = obter_perfil_usuario(usuario["id"])
@@ -185,29 +167,39 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
                     return
 
                 registro = registros[0]
-                audio_hex = registro.get("audio_blob")
+                audio_dado = registro.get("audio_blob")
 
-                if audio_hex:
-                    if audio_hex.startswith("\\x"):
-                        audio_bytes = bytes.fromhex(audio_hex[2:])
-                    else:
-                        audio_bytes = bytes.fromhex(audio_hex)
-                else:
+                audio_bytes = None
+                if audio_dado:
+                    # Converte formato hex do PostgreSQL
+                    if isinstance(audio_dado, str):
+                        if audio_dado.startswith("\\x"):
+                            audio_bytes = bytes.fromhex(audio_dado[2:])
+                        else:
+                            try:
+                                audio_bytes = bytes.fromhex(audio_dado)
+                            except ValueError:
+                                audio_bytes = base64.b64decode(audio_dado)
+
+                # Se não havia áudio em cache ou veio corrompido sem cabeçalho WAV ('RIFF')
+                if not audio_bytes or not audio_bytes.startswith(b"RIFF"):
                     audio_bytes = tts_service.sintetizar_audio_bytes(registro["texto"])
                     hex_payload = "\\x" + audio_bytes.hex()
                     requisicao_supabase(
                         f"textos?id=eq.{texto_id}",
                         metodo="PATCH",
-                        dados={"audio_blob": hex_payload},
+                        dados={"audio_blob": hex_payload}
                     )
 
                 self.send_response(200)
                 self.send_header("Content-Type", "audio/wav")
                 self.send_header("Content-Length", str(len(audio_bytes)))
+                self.send_header("Accept-Ranges", "bytes")
                 self.end_headers()
                 self.wfile.write(audio_bytes)
                 return
             except Exception as e:
+                print(f"[Erro /api/tocar] {e}")
                 self._responder_json(500, {"erro": str(e)})
                 return
 
@@ -268,7 +260,7 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
                     "textos",
                     metodo="POST",
                     dados={"texto": texto, "created_by": usuario["id"]},
-                    headers_extras={"Prefer": "return=representation"},
+                    headers_extras={"Prefer": "return=representation"}
                 )
                 self._responder_json(201, novo[0] if novo else {})
             except Exception as e:
