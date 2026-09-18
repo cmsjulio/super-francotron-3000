@@ -32,6 +32,14 @@ body {
   gap: 1.5rem;
 }
 
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 header h1 {
   font-size: 1.8rem;
   letter-spacing: -0.5px;
@@ -43,16 +51,39 @@ header p {
   margin-top: 0.25rem;
 }
 
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.badge {
+  background-color: var(--border);
+  color: var(--text-main);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge.admin {
+  background-color: #065f46;
+  color: #34d399;
+}
+
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .card h2 {
   font-size: 1.1rem;
-  margin-bottom: 0.75rem;
 }
 
 .card-header {
@@ -61,7 +92,7 @@ header p {
   align-items: center;
 }
 
-textarea {
+input, textarea {
   width: 100%;
   padding: 0.75rem;
   background: var(--item-bg);
@@ -69,15 +100,13 @@ textarea {
   border-radius: 6px;
   color: var(--text-main);
   font-size: 0.95rem;
-  resize: vertical;
 }
 
-textarea:focus {
+input:focus, textarea:focus {
   outline: 2px solid var(--primary);
 }
 
 button {
-  margin-top: 0.75rem;
   background: var(--primary);
   color: white;
   border: none;
@@ -103,7 +132,6 @@ button:disabled {
   color: var(--text-muted);
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
-  margin-top: 0;
 }
 
 .btn-secundario:hover {
@@ -120,8 +148,6 @@ button:disabled {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  margin-top: 0;
-  transition: background-color 0.15s;
 }
 
 .btn-danger:hover {
@@ -215,6 +241,10 @@ audio {
   padding: 0.35rem 0.75rem;
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Modal Dialog */
 .modal-dialog {
   border: 1px solid var(--border);
@@ -256,7 +286,6 @@ audio {
 .modal-conteudo h3 {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--text-main);
 }
 
 .modal-conteudo p {

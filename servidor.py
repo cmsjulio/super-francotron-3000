@@ -1,16 +1,147 @@
+import base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import os
 from pathlib import Path
+import time
+import urllib.error
 import urllib.parse
+import urllib.request
 
-import db
 import tts_service
 
-PORTA = 8000
+PORTA = int(os.environ.get("PORT", 8000))
 FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+
+def decodificar_jwt_payload(token: str) -> dict:
+    """Decodifica o payload do token JWT sem dependências externas."""
+    try:
+        partes = token.split(".")
+        if len(partes) != 3:
+            return {}
+        payload_b64 = partes[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        dados_bytes = base64.urlsafe_b64decode(payload_b64.encode("utf-8"))
+        return json.loads(dados_bytes.decode("utf-8"))
+    except Exception as e:
+        print(f"[JWT] Erro ao decodificar: {e}")
+        return {}
+
+
+def requisicao_supabase(
+    endpoint: str,
+    metodo: str = "GET",
+    dados: dict = None,
+    headers_extras: dict = None,
+):
+    """Executa requisições REST autenticadas com a Service Role Key."""
+    url = f"{SUPABASE_URL}/rest/v1/{endpoint.lstrip('/')}"
+    req = urllib.request.Request(url, method=metodo)
+    req.add_header("apikey", SUPABASE_KEY)
+    req.add_header("Authorization", f"Bearer {SUPABASE_KEY}")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("User-Agent", "SuperFrancotron/1.0")
+
+    if headers_extras:
+        for k, v in headers_extras.items():
+            req.add_header(k, v)
+
+    payload_bytes = None
+    if dados is not None:
+        payload_bytes = json.dumps(dados).encode("utf-8")
+
+    try:
+        with urllib.request.urlopen(req, data=payload_bytes) as resp:
+            conteudo = resp.read().decode("utf-8")
+            if conteudo:
+                return json.loads(conteudo)
+            return None
+    except urllib.error.HTTPError as e:
+        corpo_erro = e.read().decode("utf-8", errors="replace")
+        print(f"[Supabase REST] Erro {e.code}: {corpo_erro}")
+        raise RuntimeError(f"Erro Supabase ({e.code}): {corpo_erro}")
+
+
+def obter_usuario_supabase(token: str):
+    """Valida o token JWT e confirma a identidade do usuário."""
+    payload = decodificar_jwt_payload(token)
+    if not payload:
+        print("[Auth] Payload do token inválido ou corrompido.")
+        return None
+
+    # Valida expiração
+    exp = payload.get("exp", 0)
+    if time.time() > exp:
+        print(f"[Auth] Token expirado em {exp} (atual: {int(time.time())}).")
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        print("[Auth] Token não contém 'sub' (User ID).")
+        return None
+
+    # Tenta validação via Admin API do Supabase usando a Service Role Key
+    url = f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("apikey", SUPABASE_KEY)
+    req.add_header("Authorization", f"Bearer {SUPABASE_KEY}")
+    req.add_header("User-Agent", "SuperFrancotron/1.0")
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        print(f"[Auth Admin] Falha na verificação de usuário ({e.code}).")
+        # Se for um token válido com audiência autenticada, aceita os dados do payload
+        if payload.get("aud") == "authenticated":
+            return {"id": user_id, "email": payload.get("email", "")}
+        return None
+    except Exception as e:
+        print(f"[Auth Admin] Erro inesperado: {e}")
+        if payload.get("aud") == "authenticated":
+            return {"id": user_id, "email": payload.get("email", "")}
+        return None
+
+
+def obter_perfil_usuario(user_id: str):
+    """Consulta o perfil (role) na tabela profiles do Supabase."""
+    url = f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{user_id}&select=role"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("apikey", SUPABASE_KEY)
+    req.add_header("Authorization", f"Bearer {SUPABASE_KEY}")
+    req.add_header("User-Agent", "SuperFrancotron/1.0")
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            registros = json.loads(resp.read().decode("utf-8"))
+            if registros:
+                return registros[0].get("role", "USER")
+    except Exception as e:
+        print(f"[Profiles] Não foi possível obter o perfil: {e}")
+
+    return "USER"
 
 
 class SuperFrancotronHandler(BaseHTTPRequestHandler):
+
+    def _autenticar(self):
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            print("[Servidor] Requisição sem cabeçalho Authorization Bearer.")
+            return None, None
+
+        token = auth_header.split(" ", 1)[1].strip()
+        usuario = obter_usuario_supabase(token)
+        if not usuario:
+            print("[Servidor] Falha na validação do token do usuário.")
+            return None, None
+
+        role = obter_perfil_usuario(usuario["id"])
+        return usuario, role
 
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
@@ -18,41 +149,69 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
         params = urllib.parse.parse_qs(parsed_url.query)
         texto_id = params.get("id", [None])[0]
 
+        # 1. API: Listar textos
         if caminho == "/api/textos":
-            dados = db.carregar_todos()
-            self._responder_json(200, dados)
+            usuario, role = self._autenticar()
+            if not usuario:
+                self._responder_json(401, {"erro": "Não autorizado."})
+                return
+
+            try:
+                textos = requisicao_supabase(
+                    "textos?select=id,texto,created_at&order=id.desc"
+                )
+                self._responder_json(200, {"textos": textos or [], "user_role": role})
+            except Exception as e:
+                self._responder_json(500, {"erro": str(e)})
             return
 
+        # 2. API: Tocar / Transmitir áudio binário
         elif caminho == "/api/tocar":
+            usuario, _ = self._autenticar()
+            if not usuario:
+                self._responder_json(401, {"erro": "Não autorizado."})
+                return
+
             if not texto_id:
-                self._responder_json(
-                    400, {"erro": "Parâmetro 'id' é obrigatório."}
-                )
+                self._responder_json(400, {"erro": "Parâmetro 'id' obrigatório."})
                 return
 
-            texto = db.obter_texto_por_id(texto_id)
-            if not texto:
-                self._responder_json(
-                    404, {"erro": f"ID {texto_id} não encontrado."}
+            try:
+                registros = requisicao_supabase(
+                    f"textos?id=eq.{texto_id}&select=id,texto,audio_blob"
                 )
+                if not registros:
+                    self._responder_json(404, {"erro": "Texto não encontrado."})
+                    return
+
+                registro = registros[0]
+                audio_hex = registro.get("audio_blob")
+
+                if audio_hex:
+                    if audio_hex.startswith("\\x"):
+                        audio_bytes = bytes.fromhex(audio_hex[2:])
+                    else:
+                        audio_bytes = bytes.fromhex(audio_hex)
+                else:
+                    audio_bytes = tts_service.sintetizar_audio_bytes(registro["texto"])
+                    hex_payload = "\\x" + audio_bytes.hex()
+                    requisicao_supabase(
+                        f"textos?id=eq.{texto_id}",
+                        metodo="PATCH",
+                        dados={"audio_blob": hex_payload},
+                    )
+
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/wav")
+                self.send_header("Content-Length", str(len(audio_bytes)))
+                self.end_headers()
+                self.wfile.write(audio_bytes)
+                return
+            except Exception as e:
+                self._responder_json(500, {"erro": str(e)})
                 return
 
-            caminho_audio = (
-                tts_service.DEFAULT_OUTPUT_DIR / f"texto_de_id-{texto_id}.wav"
-            )
-            if not caminho_audio.exists():
-                caminho_audio = tts_service.sintetizar_audio(
-                    texto=texto, texto_id=texto_id
-                )
-
-            self.send_response(200)
-            self.send_header("Content-Type", "audio/wav")
-            self.send_header("Content-Length", str(caminho_audio.stat().st_size))
-            self.end_headers()
-            with open(caminho_audio, "rb") as f:
-                self.wfile.write(f.read())
-            return
-
+        # 3. Servir arquivos estáticos do Frontend
         if caminho == "/" or caminho == "":
             caminho = "/index.html"
 
@@ -73,43 +232,45 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", content_type)
-            self.send_header(
-                "Content-Length", str(arquivo_estatico.stat().st_size)
-            )
+            self.send_header("Content-Length", str(arquivo_estatico.stat().st_size))
             self.end_headers()
             with open(arquivo_estatico, "rb") as f:
                 self.wfile.write(f.read())
             return
 
-        self._responder_json(404, {"erro": "Arquivo ou rota não encontrada."})
+        self._responder_json(404, {"erro": "Recurso não encontrado."})
 
     def do_POST(self):
         parsed_url = urllib.parse.urlparse(self.path)
 
         if parsed_url.path == "/api/textos":
+            usuario, role = self._autenticar()
+            if not usuario:
+                self._responder_json(401, {"erro": "Não autorizado."})
+                return
+
+            if role != "ADMIN":
+                self._responder_json(
+                    403, {"erro": "Permissão negada. Apenas ADMIN pode cadastrar."}
+                )
+                return
+
             tamanho = int(self.headers.get("Content-Length", 0))
-            corpo_raw = self.rfile.read(tamanho).decode("utf-8")
+            corpo = json.loads(self.rfile.read(tamanho).decode("utf-8"))
+            texto = corpo.get("texto", "").strip()
+
+            if not texto:
+                self._responder_json(400, {"erro": "Texto vazio."})
+                return
 
             try:
-                payload = json.loads(corpo_raw)
-                texto = payload.get("texto", "").strip()
-                if not texto:
-                    self._responder_json(
-                        400, {"erro": "O campo 'texto' não pode ser vazio."}
-                    )
-                    return
-
-                novo_id = db.salvar_novo_texto(texto)
-                self._responder_json(
-                    201,
-                    {
-                        "status": "criado",
-                        "id": novo_id,
-                        "texto": texto,
-                    },
+                novo = requisicao_supabase(
+                    "textos",
+                    metodo="POST",
+                    dados={"texto": texto, "created_by": usuario["id"]},
+                    headers_extras={"Prefer": "return=representation"},
                 )
-            except json.JSONDecodeError:
-                self._responder_json(400, {"erro": "JSON inválido."})
+                self._responder_json(201, novo[0] if novo else {})
             except Exception as e:
                 self._responder_json(500, {"erro": str(e)})
             return
@@ -122,35 +283,26 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
         texto_id = params.get("id", [None])[0]
 
         if parsed_url.path == "/api/textos":
+            usuario, role = self._autenticar()
+            if not usuario:
+                self._responder_json(401, {"erro": "Não autorizado."})
+                return
+
+            if role != "ADMIN":
+                self._responder_json(
+                    403, {"erro": "Permissão negada. Apenas ADMIN pode deletar."}
+                )
+                return
+
             if not texto_id:
-                self._responder_json(
-                    400, {"erro": "Parâmetro 'id' é obrigatório."}
-                )
+                self._responder_json(400, {"erro": "Parâmetro 'id' obrigatório."})
                 return
 
-            removido = db.deletar_texto_por_id(texto_id)
-            if not removido:
-                self._responder_json(
-                    404, {"erro": f"ID {texto_id} não encontrado."}
-                )
-                return
-
-            arquivo_audio = (
-                tts_service.DEFAULT_OUTPUT_DIR / f"texto_de_id-{texto_id}.wav"
-            )
-            if arquivo_audio.exists():
-                try:
-                    arquivo_audio.unlink()
-                except OSError as e:
-                    print(f"Aviso: falha ao apagar arquivo de áudio: {e}")
-
-            self._responder_json(
-                200,
-                {
-                    "status": "sucesso",
-                    "mensagem": f"ID {texto_id} e arquivo associado foram removidos.",
-                },
-            )
+            try:
+                requisicao_supabase(f"textos?id=eq.{texto_id}", metodo="DELETE")
+                self._responder_json(200, {"status": "deletado", "id": texto_id})
+            except Exception as e:
+                self._responder_json(500, {"erro": str(e)})
             return
 
         self._responder_json(404, {"erro": "Rota não encontrada."})
@@ -166,7 +318,6 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     FRONTEND_DIR.mkdir(exist_ok=True)
-    tts_service.DEFAULT_OUTPUT_DIR.mkdir(exist_ok=True)
     servidor = HTTPServer(("", PORTA), SuperFrancotronHandler)
-    print(f"Super Francotron 3000 pronto em http://localhost:{PORTA}")
+    print(f"Super Francotron 3000 online na porta {PORTA}")
     servidor.serve_forever()

@@ -5,37 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Super Francotron 3000</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="container">
     <header>
-      <h1>Super Francotron 3000</h1>
-      <p>Synthèse vocale locale en français (Piper TTS)</p>
+      <div>
+        <h1>Super Francotron 3000</h1>
+        <p>Synthèse vocale locale (Piper TTS & Supabase)</p>
+      </div>
+      <div id="auth-info" class="auth-bar hidden">
+        <span id="user-badge" class="badge">USER</span>
+        <span id="user-email"></span>
+        <button id="btn-logout" class="btn-secundario">Déconnexion</button>
+      </div>
     </header>
 
-    <section class="card">
-      <h2>Nouveau Texte</h2>
-      <form id="form-texto">
-        <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
-        <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
+    <!-- Tela de Login -->
+    <section id="secao-login" class="card">
+      <h2>Connexion</h2>
+      <form id="form-login">
+        <input type="email" id="login-email" placeholder="Email" required />
+        <input type="password" id="login-senha" placeholder="Mot de passe" required />
+        <button type="submit" id="btn-login">Se connecter</button>
       </form>
     </section>
 
-    <section class="card">
-      <div class="card-header">
-        <h2>Bibliothèque de Textes</h2>
-        <button id="btn-atualizar" class="btn-secundario">Rafraîchir</button>
-      </div>
+    <!-- Painel Principal (Aparece após logar) -->
+    <div id="app-painel" class="hidden">
+      <!-- Painel visível apenas para ADMIN -->
+      <section id="secao-admin" class="card hidden">
+        <h2>Nouveau Texte (Admin)</h2>
+        <form id="form-texto">
+          <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
+          <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
+        </form>
+      </section>
 
-      <div id="status-player" class="player-container">
-        <span id="player-label">Sélectionnez un texte ci-dessous :</span>
-        <audio id="audio-player" controls preload="none"></audio>
-      </div>
+      <section class="card">
+        <div class="card-header">
+          <h2>Bibliothèque de Textes</h2>
+          <button id="btn-atualizar" class="btn-secundario">Rafraîchir</button>
+        </div>
 
-      <ul id="lista-textos" class="lista"></ul>
-    </section>
+        <div id="status-player" class="player-container">
+          <span id="player-label">Sélectionnez un texte ci-dessous :</span>
+          <audio id="audio-player" controls preload="none"></audio>
+        </div>
+
+        <ul id="lista-textos" class="lista"></ul>
+      </section>
+    </div>
   </main>
 
+  <!-- Modal de Confirmação -->
   <dialog id="modal-confirmacao" class="modal-dialog">
     <div class="modal-conteudo">
       <div class="modal-icone">
@@ -48,7 +71,7 @@
         </svg>
       </div>
       <h3>Confirmer la suppression</h3>
-      <p id="modal-mensagem">Êtes-vous sûr de vouloir supprimer cet élément ? Cette action efface définitivement le fichier audio associé.</p>
+      <p id="modal-mensagem">Êtes-vous sûr de vouloir supprimer cet élément ?</p>
       <div class="modal-acoes">
         <button type="button" id="btn-modal-cancelar" class="btn-secundario">Annuler</button>
         <button type="button" id="btn-modal-confirmar" class="btn-danger">Supprimer</button>
