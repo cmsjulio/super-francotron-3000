@@ -1,0 +1,41 @@
+# Bytecode e caches do Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Ambientes virtuais (caso venha a criar algum)
+.venv/
+venv/
+ENV/
+env/
+
+# Modelos do Piper (baixados dinamicamente no build do Docker)
+*.onnx
+*.onnx.json
+
+# Arquivos e pastas de áudio locais
+audio_cache/
+*.wav
+*.mp3
+
+# Scripts de teste e experimentos descartáveis
+ler_frances.py
+teste_*.wav
+saida_*.wav
+
+# Banco de dados local legado (substituído pelo Supabase)
+db.json
+db.py
+
+# Variáveis de ambiente e segredos locais
+.env
+.env.*
+!.env.example
+
+# Arquivos do sistema operacional e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

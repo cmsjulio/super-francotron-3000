@@ -6,7 +6,14 @@ const listaTextos = document.getElementById('lista-textos');
 const audioPlayer = document.getElementById('audio-player');
 const playerLabel = document.getElementById('player-label');
 
-// Carregar lista de textos da API
+const modal = document.getElementById('modal-confirmacao');
+const modalMensagem = document.getElementById('modal-mensagem');
+const btnModalCancelar = document.getElementById('btn-modal-cancelar');
+const btnModalConfirmar = document.getElementById('btn-modal-confirmar');
+
+let idEmReproducao = null;
+let idParaExcluir = null;
+
 async function carregarTextos() {
   listaTextos.innerHTML = '<li style="color: var(--text-muted);">Chargement...</li>';
   try {
@@ -14,11 +21,10 @@ async function carregarTextos() {
     const dados = await res.json();
     renderizarLista(dados);
   } catch (err) {
-    listaTextos.innerHTML = '<li style="color: red;">Erreur de connexion avec le serveur.</li>';
+    listaTextos.innerHTML = '<li style="color: #ef4444;">Erreur de connexion avec le serveur.</li>';
   }
 }
 
-// Renderiza a lista no HTML
 function renderizarLista(itens) {
   listaTextos.innerHTML = '';
   const chaves = Object.keys(itens).sort((a, b) => Number(b) - Number(a));
@@ -34,37 +40,96 @@ function renderizarLista(itens) {
     li.className = 'item-texto';
 
     li.innerHTML = `
+      <button class="btn-deletar" title="Supprimer" onclick="abrirModalExclusao('${id}')">&times;</button>
       <div class="item-cabecalho">
         <span class="item-id">#ID ${id}</span>
       </div>
       <div class="item-corpo">${escapeHtml(texto)}</div>
-      <button onclick="tocarAudio('${id}', this)">▶ Écouter</button>
+      <button class="btn-tocar" onclick="tocarAudio('${id}', this)">▶ Écouter</button>
     `;
 
     listaTextos.appendChild(li);
   });
 }
 
-// Reproduz o áudio solicitando ao endpoint do Piper
 async function tocarAudio(id, btnElement) {
   const textoOriginal = btnElement.innerText;
   btnElement.innerText = '⏳ Génération...';
   btnElement.disabled = true;
 
-  playerLabel.innerText = `Lecture de l'ID #${id}...`;
+  idEmReproducao = id;
+  playerLabel.innerText = `Lecture du texte #${id}...`;
   audioPlayer.src = `/api/tocar?id=${id}`;
 
   try {
     await audioPlayer.play();
   } catch (e) {
-    console.error("Lecture bloquée ou erreur :", e);
+    console.error("Lecture bloquée ou échouée :", e);
   } finally {
     btnElement.innerText = textoOriginal;
     btnElement.disabled = false;
   }
 }
 
-// Submeter novo texto
+function abrirModalExclusao(id) {
+  idParaExcluir = id;
+  modalMensagem.innerText = `Voulez-vous vraiment supprimer le texte #${id} ? Le fichier audio généré sur le serveur sera également détruit.`;
+  modal.showModal();
+}
+
+function fecharModal() {
+  idParaExcluir = null;
+  modal.close();
+}
+
+async function confirmarExclusao() {
+  if (!idParaExcluir) return;
+
+  const id = idParaExcluir;
+  btnModalConfirmar.disabled = true;
+  btnModalConfirmar.innerText = 'Suppression...';
+
+  try {
+    const res = await fetch(`/api/textos?id=${id}`, {
+      method: 'DELETE'
+    });
+
+    if (res.ok) {
+      if (idEmReproducao === id) {
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        playerLabel.innerText = 'Sélectionnez un texte ci-dessous :';
+        idEmReproducao = null;
+      }
+      fecharModal();
+      await carregarTextos();
+    } else {
+      alert('Erreur lors de la suppression.');
+    }
+  } catch (err) {
+    alert('Erreur de connexion avec le serveur.');
+  } finally {
+    btnModalConfirmar.disabled = false;
+    btnModalConfirmar.innerText = 'Supprimer';
+  }
+}
+
+btnModalCancelar.addEventListener('click', fecharModal);
+btnModalConfirmar.addEventListener('click', confirmarExclusao);
+
+modal.addEventListener('click', (e) => {
+  const rect = modal.getBoundingClientRect();
+  const foraDoDialog = (
+    e.clientX < rect.left ||
+    e.clientX > rect.right ||
+    e.clientY < rect.top ||
+    e.clientY > rect.bottom
+  );
+  if (foraDoDialog) {
+    fecharModal();
+  }
+});
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const texto = textoInput.value.trim();
@@ -102,5 +167,4 @@ function escapeHtml(str) {
   );
 }
 
-// Inicialização
 carregarTextos();

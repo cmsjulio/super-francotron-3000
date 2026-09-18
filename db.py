@@ -21,10 +21,7 @@ def obter_texto_por_id(texto_id: str) -> Optional[str]:
 
 
 def salvar_novo_texto(texto: str) -> str:
-    """Gera um novo ID numérico sequencial e salva o texto no db.json."""
     dados = carregar_todos()
-
-    # Gera próximo ID sequencial
     ids_existentes = [int(k) for k in dados.keys() if k.isdigit()]
     proximo_id = str(max(ids_existentes) + 1 if ids_existentes else 1)
 
@@ -34,3 +31,14 @@ def salvar_novo_texto(texto: str) -> str:
         json.dump(dados, f, ensure_ascii=False, indent=2)
 
     return proximo_id
+
+
+def deletar_texto_por_id(texto_id: str) -> bool:
+    dados = carregar_todos()
+    chave = str(texto_id)
+    if chave in dados:
+        del dados[chave]
+        with open(DB_PATH, "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+        return True
+    return False

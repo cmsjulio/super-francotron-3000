@@ -18,13 +18,11 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
         params = urllib.parse.parse_qs(parsed_url.query)
         texto_id = params.get("id", [None])[0]
 
-        # 1. API: Listar todos os textos existentes
         if caminho == "/api/textos":
             dados = db.carregar_todos()
             self._responder_json(200, dados)
             return
 
-        # 2. API: Tocar / Transmitir áudio por ID
         elif caminho == "/api/tocar":
             if not texto_id:
                 self._responder_json(
@@ -55,7 +53,6 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f.read())
             return
 
-        # 3. Servir arquivos estáticos do Frontend
         if caminho == "/" or caminho == "":
             caminho = "/index.html"
 
@@ -89,7 +86,6 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # Rota para cadastrar novos textos
         if parsed_url.path == "/api/textos":
             tamanho = int(self.headers.get("Content-Length", 0))
             corpo_raw = self.rfile.read(tamanho).decode("utf-8")
@@ -120,6 +116,45 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
         self._responder_json(404, {"erro": "Rota não encontrada."})
 
+    def do_DELETE(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed_url.query)
+        texto_id = params.get("id", [None])[0]
+
+        if parsed_url.path == "/api/textos":
+            if not texto_id:
+                self._responder_json(
+                    400, {"erro": "Parâmetro 'id' é obrigatório."}
+                )
+                return
+
+            removido = db.deletar_texto_por_id(texto_id)
+            if not removido:
+                self._responder_json(
+                    404, {"erro": f"ID {texto_id} não encontrado."}
+                )
+                return
+
+            arquivo_audio = (
+                tts_service.DEFAULT_OUTPUT_DIR / f"texto_de_id-{texto_id}.wav"
+            )
+            if arquivo_audio.exists():
+                try:
+                    arquivo_audio.unlink()
+                except OSError as e:
+                    print(f"Aviso: falha ao apagar arquivo de áudio: {e}")
+
+            self._responder_json(
+                200,
+                {
+                    "status": "sucesso",
+                    "mensagem": f"ID {texto_id} e arquivo associado foram removidos.",
+                },
+            )
+            return
+
+        self._responder_json(404, {"erro": "Rota não encontrada."})
+
     def _responder_json(self, status_code: int, payload: dict):
         corpo = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status_code)
@@ -131,6 +166,7 @@ class SuperFrancotronHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     FRONTEND_DIR.mkdir(exist_ok=True)
+    tts_service.DEFAULT_OUTPUT_DIR.mkdir(exist_ok=True)
     servidor = HTTPServer(("", PORTA), SuperFrancotronHandler)
     print(f"Super Francotron 3000 pronto em http://localhost:{PORTA}")
     servidor.serve_forever()
