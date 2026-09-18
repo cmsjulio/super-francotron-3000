@@ -35,27 +35,38 @@ let sessaoAtual = null;
 let perfilAtual = 'USER';
 let idEmReproducao = null;
 let idParaExcluir = null;
+let textosJaCarregados = false;
 
 // Inicialização de Sessão
 async function verificarSessao() {
   const { data } = await supabaseClient.auth.getSession();
   if (data.session) {
-    aplicarSessao(data.session);
+    await aplicarSessao(data.session);
   } else {
     exibirLogin();
   }
 }
 
-supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (session) {
-    aplicarSessao(session);
-  } else {
+// Ouve mudanças de estado sem recarregar desnecessariamente no foco de abas
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_OUT' || !session) {
+    textosJaCarregados = false;
     exibirLogin();
+    return;
+  }
+
+  // Se o usuário for diferente ou a lista ainda não tiver sido carregada
+  const usuarioMudou = !sessaoAtual || sessaoAtual.user.id !== session.user.id;
+  sessaoAtual = session;
+
+  if (usuarioMudou || !textosJaCarregados) {
+    await aplicarSessao(session);
   }
 });
 
 function exibirLogin() {
   sessaoAtual = null;
+  textosJaCarregados = false;
   secaoLogin.classList.remove('hidden');
   appPainel.classList.add('hidden');
   authInfo.classList.add('hidden');
@@ -87,12 +98,16 @@ btnLogout.addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   audioPlayer.pause();
   audioPlayer.src = '';
+  textosJaCarregados = false;
 });
 
 // Buscar Textos no Servidor
 async function carregarTextos() {
   if (!sessaoAtual) return;
-  listaTextos.innerHTML = '<li style="color: var(--text-muted);">Chargement...</li>';
+  
+  if (!textosJaCarregados) {
+    listaTextos.innerHTML = '<li style="color: var(--text-muted);">Chargement...</li>';
+  }
 
   try {
     const res = await fetch('/api/textos', {
@@ -103,7 +118,7 @@ async function carregarTextos() {
 
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      listaTextos.innerHTML = `<li style="color: #ef4444;">Erreur ${res.status}: ${errJson.erro || 'Non autorisé.'}</li>`;
+      listaTextos.innerHTML = `<li style="color: #ef4444;">Erreur ${res.status}: ${errJson.detail || 'Non autorisé.'}</li>`;
       return;
     }
 
@@ -120,8 +135,11 @@ async function carregarTextos() {
     }
 
     renderizarLista(dados.textos || []);
+    textosJaCarregados = true;
   } catch (err) {
-    listaTextos.innerHTML = '<li style="color: #ef4444;">Erreur de connexion avec le serveur.</li>';
+    if (!textosJaCarregados) {
+      listaTextos.innerHTML = '<li style="color: #ef4444;">Erreur de connexion avec le serveur.</li>';
+    }
   }
 }
 
@@ -271,7 +289,10 @@ formTexto.addEventListener('submit', async (e) => {
   }
 });
 
-btnAtualizar.addEventListener('click', carregarTextos);
+btnAtualizar.addEventListener('click', () => {
+  textosJaCarregados = false;
+  carregarTextos();
+});
 
 function escapeHtml(str) {
   return str.replace(/[&<>'"]/g, 
