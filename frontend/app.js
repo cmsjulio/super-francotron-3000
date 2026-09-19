@@ -34,6 +34,7 @@ const listaExercicioTextos = document.getElementById('lista-exercicio-textos');
 const exercicioIdBadge = document.getElementById('exercicio-id-badge');
 const exercicioTextoDisplay = document.getElementById('exercicio-texto-display');
 const btnOuvirTtsExercicio = document.getElementById('btn-ouvir-tts-exercicio');
+const btnNotasExercicio = document.getElementById('btn-notas-exercicio');
 const btnGravar = document.getElementById('btn-gravar');
 const btnGravarLabel = document.getElementById('btn-gravar-label');
 const gravadorTimer = document.getElementById('gravador-timer');
@@ -41,27 +42,48 @@ const gravadorStatus = document.getElementById('gravador-status');
 const listaMinhasGravacoes = document.getElementById('lista-minhas-gravacoes');
 const contadorGravacoes = document.getElementById('contador-gravacoes');
 
-// DOM Elements: Modal
-const modal = document.getElementById('modal-confirmacao');
+// DOM Elements: Modal de Confirmação de Exclusão
+const modalConfirmacao = document.getElementById('modal-confirmacao');
 const modalMensagem = document.getElementById('modal-mensagem');
 const btnModalCancelar = document.getElementById('btn-modal-cancelar');
 const btnModalConfirmar = document.getElementById('btn-modal-confirmar');
+
+// DOM Elements: Modal de Notas de Áudio
+const modalNotas = document.getElementById('modal-notas');
+const modalNotaId = document.getElementById('modal-nota-id');
+const modalNotaTextoCompleto = document.getElementById('modal-nota-texto-completo');
+const btnOuvirTtsModal = document.getElementById('btn-ouvir-tts-modal');
+const btnFecharModalNotas = document.getElementById('btn-fechar-modal-notas');
+const painelAdminGravarNota = document.getElementById('painel-admin-gravar-nota');
+const btnGravarNota = document.getElementById('btn-gravar-nota');
+const btnGravarNotaLabel = document.getElementById('btn-gravar-nota-label');
+const timerNota = document.getElementById('timer-nota');
+const statusGravacaoNota = document.getElementById('status-gravacao-nota');
+const listaNotasAudio = document.getElementById('lista-notas-audio');
 
 // Estado da Aplicação
 let sessaoAtual = null;
 let perfilAtual = 'USER';
 let textosMemoria = [];
 let textoAtivoExercicio = null;
+let textoAtivoModalNotas = null;
 let textosJaCarregados = false;
 
-// Estado do Gravador (MediaRecorder)
+// Estado do Gravador (Exercícios)
 let mediaRecorder = null;
 let audioChunks = [];
 let gravando = false;
 let timerInterval = null;
 let segundosGravados = 0;
 
-// Estado de Exclusão no Modal
+// Estado do Gravador (Notas de Admin)
+let mediaRecorderNota = null;
+let audioChunksNota = [];
+let gravandoNota = false;
+let timerIntervalNota = null;
+let segundosNota = 0;
+
+// Callback de Exclusão
 let acaoExclusaoPendente = null;
 
 // --- INICIALIZAÇÃO DE SESSÃO ---
@@ -211,7 +233,10 @@ function renderizarBiblioteca(itens) {
         <span class="item-id">#ID ${item.id}</span>
       </div>
       <div class="item-corpo">${escapeHtml(item.texto)}</div>
-      <button class="btn-tocar" onclick="tocarAudioBiblioteca('${item.id}', this)">▶ Écouter</button>
+      <div class="item-acoes">
+        <button class="btn-tocar" onclick="tocarAudioBiblioteca('${item.id}', this)">▶ Écouter</button>
+        <button class="btn-secundario" onclick="abrirModalNotas('${item.id}')">💬 Notes</button>
+      </div>
     `;
 
     listaTextos.appendChild(li);
@@ -251,6 +276,7 @@ async function selecionarTextoParaExercicio(id) {
   exercicioIdBadge.innerText = `#ID ${item.id}`;
   exercicioTextoDisplay.innerText = item.texto;
   btnOuvirTtsExercicio.disabled = false;
+  btnNotasExercicio.disabled = false;
   btnGravar.disabled = false;
 
   document.querySelectorAll('.item-exercicio-nav').forEach(el => {
@@ -259,6 +285,13 @@ async function selecionarTextoParaExercicio(id) {
 
   await carregarGravacoesUsuario(item.id);
 }
+
+// Botão de Notes na aba Pratique
+btnNotasExercicio.addEventListener('click', () => {
+  if (textoAtivoExercicio) {
+    abrirModalNotas(textoAtivoExercicio.id);
+  }
+});
 
 btnOuvirTtsExercicio.addEventListener('click', async () => {
   if (!textoAtivoExercicio || !sessaoAtual) return;
@@ -311,7 +344,225 @@ async function tocarAudioBiblioteca(id, btnElement) {
   }
 }
 
-// --- GRAVADOR DE VOZ (MICROFONE) ---
+// --- MODAL DE NOTAS / COMENTÁRIOS DO ADMIN ---
+
+async function abrirModalNotas(id) {
+  const item = textosMemoria.find(t => String(t.id) === String(id));
+  if (!item) return;
+
+  textoAtivoModalNotas = item;
+  modalNotaId.innerText = `#ID ${item.id}`;
+  modalNotaTextoCompleto.innerText = item.texto;
+
+  if (perfilAtual === 'ADMIN') {
+    painelAdminGravarNota.classList.remove('hidden');
+  } else {
+    painelAdminGravarNota.classList.add('hidden');
+  }
+
+  await carregarNotasTexto(item.id);
+  modalNotas.showModal();
+}
+
+// Ouvir TTS diretamente do modal
+btnOuvirTtsModal.addEventListener('click', async () => {
+  if (!textoAtivoModalNotas || !sessaoAtual) return;
+  const original = btnOuvirTtsModal.innerText;
+  btnOuvirTtsModal.innerText = "⏳ Génération...";
+  btnOuvirTtsModal.disabled = true;
+
+  try {
+    const res = await fetch(`/api/tocar?id=${textoAtivoModalNotas.id}`, {
+      headers: { 'Authorization': `Bearer ${sessaoAtual.access_token}` }
+    });
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    audioPlayer.src = url;
+    await audioPlayer.play();
+  } catch (e) {
+    alert("Impossible de lire l'audio de référence.");
+  } finally {
+    btnOuvirTtsModal.innerText = original;
+    btnOuvirTtsModal.disabled = false;
+  }
+});
+
+function fecharModalNotas() {
+  if (gravandoNota) pararGravacaoNota();
+  modalNotas.close();
+}
+
+btnFecharModalNotas.addEventListener('click', fecharModalNotas);
+
+async function carregarNotasTexto(textoId) {
+  if (!sessaoAtual) return;
+  listaNotasAudio.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem;">Chargement des notes...</li>';
+
+  try {
+    const res = await fetch(`/api/textos/${textoId}/notas`, {
+      headers: { 'Authorization': `Bearer ${sessaoAtual.access_token}` }
+    });
+    const dados = await res.json();
+    renderizarListaNotas(dados.notas || []);
+  } catch (e) {
+    listaNotasAudio.innerHTML = '<li style="color: #ef4444; font-size: 0.85rem;">Erreur de chargement des notes.</li>';
+  }
+}
+
+function renderizarListaNotas(notas) {
+  listaNotasAudio.innerHTML = '';
+
+  if (notas.length === 0) {
+    listaNotasAudio.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem;">Aucun commentaire pour ce texte.</li>';
+    return;
+  }
+
+  notas.forEach((n, index) => {
+    const dataFormatada = new Date(n.created_at).toLocaleString('fr-FR', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
+
+    const li = document.createElement('li');
+    li.className = 'item-gravacao';
+
+    const botaoDelete = perfilAtual === 'ADMIN'
+      ? `<button class="btn-deletar" title="Supprimer la note" onclick="solicitarExclusaoNota('${n.id}')">&times;</button>`
+      : '';
+
+    li.innerHTML = `
+      ${botaoDelete}
+      <div class="item-gravacao-header">
+        <span class="gravacao-badge">Commentaire #${notas.length - index}</span>
+        <span class="gravacao-data">${dataFormatada}</span>
+      </div>
+      <audio controls preload="none" src="/api/textos/notas/${n.id}/audio"></audio>
+    `;
+
+    const audioElement = li.querySelector('audio');
+    audioElement.addEventListener('play', async (e) => {
+      if (audioElement.dataset.loaded) return;
+      e.preventDefault();
+      try {
+        const res = await fetch(`/api/textos/notas/${n.id}/audio`, {
+          headers: { 'Authorization': `Bearer ${sessaoAtual.access_token}` }
+        });
+        const blob = await res.blob();
+        audioElement.src = URL.createObjectURL(blob);
+        audioElement.dataset.loaded = "true";
+        await audioElement.play();
+      } catch (err) {
+        alert("Impossible de lire le commentaire audio.");
+      }
+    });
+
+    listaNotasAudio.appendChild(li);
+  });
+}
+
+// Gravação de Notas pelo Admin
+btnGravarNota.addEventListener('click', async () => {
+  if (!gravandoNota) {
+    await iniciarGravacaoNota();
+  } else {
+    pararGravacaoNota();
+  }
+});
+
+async function iniciarGravacaoNota() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Microphone non disponible.");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorderNota = new MediaRecorder(stream);
+    audioChunksNota = [];
+
+    mediaRecorderNota.ondataavailable = (event) => {
+      if (event.data.size > 0) audioChunksNota.push(event.data);
+    };
+
+    mediaRecorderNota.onstop = async () => {
+      const audioBlob = new Blob(audioChunksNota, { type: 'audio/webm' });
+      await enviarNotaAoServidor(audioBlob);
+      stream.getTracks().forEach(track => track.stop());
+    };
+
+    mediaRecorderNota.start();
+    gravandoNota = true;
+    segundosNota = 0;
+    timerNota.innerText = "00:00";
+    btnGravarNota.classList.add('gravando');
+    btnGravarNotaLabel.innerText = "Arrêter la note";
+    statusGravacaoNota.innerText = "Enregistrement du commentaire en cours...";
+
+    timerIntervalNota = setInterval(() => {
+      segundosNota++;
+      const min = String(Math.floor(segundosNota / 60)).padStart(2, '0');
+      const sec = String(segundosNota % 60).padStart(2, '0');
+      timerNota.innerText = `${min}:${sec}`;
+    }, 1000);
+
+  } catch (err) {
+    alert("Accès au microphone refusé.");
+  }
+}
+
+function pararGravacaoNota() {
+  if (!mediaRecorderNota || !gravandoNota) return;
+  mediaRecorderNota.stop();
+  gravandoNota = false;
+  clearInterval(timerIntervalNota);
+  btnGravarNota.classList.remove('gravando');
+  btnGravarNotaLabel.innerText = "Enregistrer une note";
+  statusGravacaoNota.innerText = "Traitement et envoi de la note...";
+}
+
+async function enviarNotaAoServidor(audioBlob) {
+  if (!textoAtivoModalNotas || !sessaoAtual) return;
+
+  const formData = new FormData();
+  formData.append('audio', audioBlob, `nota_${Date.now()}.webm`);
+
+  try {
+    const res = await fetch(`/api/textos/${textoAtivoModalNotas.id}/notas`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${sessaoAtual.access_token}`
+      },
+      body: formData
+    });
+
+    if (res.ok) {
+      statusGravacaoNota.innerText = "Note enregistrée avec succès !";
+      await carregarNotasTexto(textoAtivoModalNotas.id);
+    } else {
+      statusGravacaoNota.innerText = "Erreur lors de l'enregistrement de la note.";
+    }
+  } catch (e) {
+    statusGravacaoNota.innerText = "Erreur réseau avec le serveur.";
+  }
+}
+
+function solicitarExclusaoNota(notaId) {
+  abrirModalConfirmacao("Voulez-vous supprimer définitivement ce commentaire audio ?", async () => {
+    try {
+      const res = await fetch(`/api/textos/notas/${notaId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${sessaoAtual.access_token}` }
+      });
+      if (res.ok && textoAtivoModalNotas) {
+        await carregarNotasTexto(textoAtivoModalNotas.id);
+      }
+    } catch (e) {
+      alert("Erreur lors de la suppression de la note.");
+    }
+  });
+}
+
+// --- GRAVADOR DE VOZ (PRATIQUE / EXERCÍCIOS) ---
 
 btnGravar.addEventListener('click', async () => {
   if (!gravando) {
@@ -398,8 +649,6 @@ async function enviarGravacaoAoServidor(audioBlob) {
   }
 }
 
-// --- HISTÓRICO DE GRAVAÇÕES DO USUÁRIO ---
-
 async function carregarGravacoesUsuario(textoId) {
   if (!sessaoAtual) return;
   listaMinhasGravacoes.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem;">Chargement...</li>';
@@ -427,7 +676,7 @@ function renderizarHistoricoGravacoes(gravacoes) {
 
   gravacoes.forEach((g, index) => {
     const dataFormatada = new Date(g.created_at).toLocaleString('fr-FR', {
-      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
     });
 
     const li = document.createElement('li');
@@ -464,18 +713,18 @@ function renderizarHistoricoGravacoes(gravacoes) {
 
 // --- MODAL DE CONFIRMAÇÃO ---
 
-function abrirModal(mensagem, callback) {
+function abrirModalConfirmacao(mensagem, callback) {
   modalMensagem.innerText = mensagem;
   acaoExclusaoPendente = callback;
-  modal.showModal();
+  modalConfirmacao.showModal();
 }
 
-function fecharModal() {
+function fecharModalConfirmacao() {
   acaoExclusaoPendente = null;
-  modal.close();
+  modalConfirmacao.close();
 }
 
-btnModalCancelar.addEventListener('click', fecharModal);
+btnModalCancelar.addEventListener('click', fecharModalConfirmacao);
 
 btnModalConfirmar.addEventListener('click', async () => {
   if (acaoExclusaoPendente) {
@@ -484,12 +733,12 @@ btnModalConfirmar.addEventListener('click', async () => {
     await acaoExclusaoPendente();
     btnModalConfirmar.disabled = false;
     btnModalConfirmar.innerText = "Supprimer";
-    fecharModal();
+    fecharModalConfirmacao();
   }
 });
 
 function solicitarExclusaoTexto(id) {
-  abrirModal(`Voulez-vous supprimer définitivement le texte #${id} ? Les enregistrements associés seront également détruits.`, async () => {
+  abrirModalConfirmacao(`Voulez-vous supprimer définitivement le texte #${id} ? Les enregistrements et notes associés seront également détruits.`, async () => {
     try {
       const res = await fetch(`/api/textos?id=${id}`, {
         method: 'DELETE',
@@ -504,6 +753,7 @@ function solicitarExclusaoTexto(id) {
           exercicioTextoDisplay.innerText = "Sélectionnez un texte pour commencer.";
           listaMinhasGravacoes.innerHTML = '';
           btnOuvirTtsExercicio.disabled = true;
+          btnNotasExercicio.disabled = true;
           btnGravar.disabled = true;
         }
       }
@@ -514,7 +764,7 @@ function solicitarExclusaoTexto(id) {
 }
 
 function solicitarExclusaoGravacao(gravacaoId) {
-  abrirModal("Voulez-vous supprimer définitivement cet enregistrement audio ?", async () => {
+  abrirModalConfirmacao("Voulez-vous supprimer définitivement cet enregistrement audio ?", async () => {
     try {
       const res = await fetch(`/api/exercicios/gravacoes/${gravacaoId}`, {
         method: 'DELETE',

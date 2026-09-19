@@ -47,7 +47,6 @@
 
       <!-- ABA 1: BIBLIOTECA -->
       <div id="aba-biblioteca" class="conteudo-aba active">
-        <!-- Inserção de Textos (ADMINISTRATEUR) -->
         <section id="secao-admin" class="card hidden">
           <h2>Nouveau Texte (Admin)</h2>
           <form id="form-texto">
@@ -73,7 +72,6 @@
       <!-- ABA 2: PRATIQUE -->
       <div id="aba-exercicios" class="conteudo-aba">
         <div class="layout-exercicios">
-          <!-- Coluna Esquerda: Escolha de Texto -->
           <aside class="coluna-textos card">
             <div class="card-header">
               <h2>Textes d'exercice</h2>
@@ -81,21 +79,24 @@
             <ul id="lista-exercicio-textos" class="lista-mini"></ul>
           </aside>
 
-          <!-- Coluna Direita: Área de Treino e Gravação -->
           <section class="coluna-treino">
             <div class="card" id="painel-texto-ativo">
               <div class="card-header">
                 <span id="exercicio-id-badge" class="badge">#ID --</span>
-                <button type="button" id="btn-ouvir-tts-exercicio" class="btn-secundario" disabled>
-                  🔊 Écouter la voix de référence
-                </button>
+                <div class="item-acoes" style="margin: 0;">
+                  <button type="button" id="btn-ouvir-tts-exercicio" class="btn-secundario" disabled>
+                    🔊 Écouter la référence
+                  </button>
+                  <button type="button" id="btn-notas-exercicio" class="btn-secundario" disabled>
+                    💬 Notes
+                  </button>
+                </div>
               </div>
               <p id="exercicio-texto-display" class="texto-leitura-destaque">
                 Sélectionnez un texte dans la colonne de gauche pour commencer à pratiquer.
               </p>
             </div>
 
-            <!-- Painel de Gravação do Utilizador -->
             <div class="card" id="painel-gravacao">
               <h2>Votre Enregistrement</h2>
               <div class="gravador-controles">
@@ -108,7 +109,6 @@
               <p id="gravador-status" class="status-msg">Microphone prêt.</p>
             </div>
 
-            <!-- Histórico de Gravações do Utilizador -->
             <div class="card">
               <div class="card-header">
                 <h2>Vos Essais Enregistrés</h2>
@@ -122,7 +122,49 @@
     </div>
   </main>
 
-  <!-- Modal de Confirmação Unificado -->
+  <!-- Modal de Notas / Detalhes do Texto -->
+  <dialog id="modal-notas" class="modal-dialog modal-dialog-largo">
+    <div class="modal-conteudo modal-conteudo-left">
+      <div class="modal-header-barra">
+        <div class="modal-titulo-box">
+          <span id="modal-nota-id" class="badge">#ID --</span>
+          <h3>Détails & Notes audio</h3>
+        </div>
+        <button type="button" id="btn-fechar-modal-notas" class="btn-deletar" style="position: static;">&times;</button>
+      </div>
+
+      <div class="modal-corpo-texto">
+        <p id="modal-nota-texto-completo" class="texto-leitura-destaque"></p>
+      </div>
+
+      <div class="player-container" style="margin: 0.25rem 0;">
+        <button type="button" id="btn-ouvir-tts-modal" class="btn-secundario" style="align-self: flex-start;">
+          🔊 Écouter la référence
+        </button>
+      </div>
+
+      <!-- Área de Gravação do ADMIN -->
+      <div id="painel-admin-gravar-nota" class="painel-admin-nota hidden">
+        <h4>Ajouter un commentaire audio (Admin)</h4>
+        <div class="gravador-controles">
+          <button type="button" id="btn-gravar-nota" class="btn-rec">
+            <span class="rec-bullet"></span>
+            <span id="btn-gravar-nota-label">Enregistrer une note</span>
+          </button>
+          <span id="timer-nota" class="timer-display">00:00</span>
+        </div>
+        <p id="status-gravacao-nota" class="status-msg">Microphone prêt.</p>
+      </div>
+
+      <!-- Lista de Notas Existentes -->
+      <div class="secao-historico-notas">
+        <h4>Commentaires ajoutés</h4>
+        <ul id="lista-notas-audio" class="lista-gravacoes"></ul>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal de Confirmação de Exclusão -->
   <dialog id="modal-confirmacao" class="modal-dialog">
     <div class="modal-conteudo">
       <div class="modal-icone">

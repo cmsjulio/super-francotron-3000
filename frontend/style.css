@@ -92,7 +92,6 @@ header h1 {
   color: #34d399;
 }
 
-/* Botão de Logout com Ícone */
 .btn-logout {
   background: transparent;
   border: 1px solid var(--border);
@@ -349,9 +348,14 @@ audio {
   overflow-wrap: anywhere;
 }
 
-.item-texto button.btn-tocar {
-  align-self: flex-start;
+.item-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   margin-top: 0.25rem;
+}
+
+.item-acoes button {
   font-size: 0.75rem;
   padding: 0.35rem 0.65rem;
 }
@@ -554,6 +558,13 @@ audio {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
 }
 
+.modal-dialog-largo {
+  width: 95vw;
+  max-width: 580px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
 .modal-dialog::backdrop {
   background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(3px);
@@ -566,6 +577,51 @@ audio {
   align-items: center;
   text-align: center;
   gap: 0.75rem;
+}
+
+.modal-conteudo-left {
+  align-items: stretch;
+  text-align: left;
+}
+
+.modal-header-barra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.modal-titulo-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-corpo-texto {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.painel-admin-nota {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px dashed var(--primary);
+  padding: 0.75rem;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.painel-admin-nota h4, .secao-historico-notas h4 {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.secao-historico-notas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .modal-icone {
@@ -662,5 +718,10 @@ audio {
   .modal-dialog {
     width: 420px;
     max-width: 420px;
+  }
+
+  .modal-dialog-largo {
+    width: 580px;
+    max-width: 580px;
   }
 }
