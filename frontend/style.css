@@ -115,6 +115,20 @@ header h1 {
   color: var(--danger);
 }
 
+/* Formulário de Login com botão em largura total */
+.auth-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.btn-full {
+  width: 100%;
+  padding: 0.65rem;
+  text-align: center;
+}
+
 /* Navegação por Abas */
 .nav-abas {
   display: grid;
@@ -190,10 +204,10 @@ header h1 {
   width: 100%;
 }
 
-/* Formulários */
+/* Formulários e Inputs */
 input, textarea {
   width: 100%;
-  padding: 0.6rem;
+  padding: 0.65rem;
   background: var(--item-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -545,14 +559,14 @@ audio {
   display: none !important;
 }
 
-/* Modal Dialog */
+/* Modais Padronizados */
 .modal-dialog {
   border: 1px solid var(--border);
   border-radius: 10px;
   background-color: var(--card-bg);
   color: var(--text-main);
   max-width: 90vw;
-  width: 290px;
+  width: 300px;
   margin: auto;
   padding: 0;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
@@ -571,7 +585,7 @@ audio {
 }
 
 .modal-conteudo {
-  padding: 1.1rem;
+  padding: 1.2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -625,10 +639,8 @@ audio {
 }
 
 .modal-icone {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -636,15 +648,30 @@ audio {
   flex-shrink: 0;
 }
 
+.icone-perigo {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.icone-info {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--primary);
+}
+
+.icone-sucesso {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
 .modal-conteudo h3 {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
 }
 
 .modal-conteudo p {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-word;
 }
 
@@ -716,8 +743,8 @@ audio {
   }
 
   .modal-dialog {
-    width: 420px;
-    max-width: 420px;
+    width: 380px;
+    max-width: 380px;
   }
 
   .modal-dialog-largo {

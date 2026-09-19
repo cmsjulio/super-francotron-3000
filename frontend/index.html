@@ -27,15 +27,33 @@
       </div>
     </header>
 
-    <!-- Tela de Autenticação (Login / Cadastro) -->
+    <!-- Tela de Autenticação -->
     <section id="secao-login" class="card">
       <h2 id="auth-form-title">Connexion</h2>
-      <form id="form-login">
+      
+      <!-- Botão Login Google OAuth -->
+      <button type="button" id="btn-login-google" class="btn-full btn-secundario" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; font-weight: 600; color: var(--text-main); border-color: var(--border); padding: 0.65rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/>
+          <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+          <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/>
+          <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/>
+        </svg>
+        Continuer avec Google
+      </button>
+
+      <div style="display: flex; align-items: center; text-align: center; margin: 0.5rem 0; color: var(--text-muted); font-size: 0.75rem;">
+        <hr style="flex: 1; border: none; border-top: 1px solid var(--border);" />
+        <span style="padding: 0 0.5rem;">ou avec email</span>
+        <hr style="flex: 1; border: none; border-top: 1px solid var(--border);" />
+      </div>
+
+      <form id="form-login" class="auth-formulario">
         <input type="email" id="login-email" placeholder="Email" required />
         <input type="password" id="login-senha" placeholder="Mot de passe" required />
-        <button type="submit" id="btn-login">Se connecter</button>
+        <button type="submit" id="btn-login" class="btn-full">Se connecter</button>
       </form>
-      <div style="text-align: center; margin-top: 0.25rem;">
+      <div style="text-align: center; margin-top: 0.35rem;">
         <button type="button" id="btn-toggle-auth" class="btn-secundario" style="border: none; text-decoration: underline;">
           Pas encore de compte ? S'inscrire
         </button>
@@ -44,7 +62,6 @@
 
     <!-- Painel Principal Autenticado -->
     <div id="app-painel" class="hidden">
-      <!-- Navegação por Abas -->
       <nav class="nav-abas">
         <button type="button" class="tab-btn active" data-tab="aba-biblioteca">Bibliothèque</button>
         <button type="button" class="tab-btn" data-tab="aba-exercicios">Pratique</button>
@@ -56,7 +73,7 @@
           <h2>Nouveau Texte (Admin)</h2>
           <form id="form-texto">
             <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
-            <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
+            <button type="submit" id="btn-salvar" class="btn-full">Ajouter à la bibliothèque</button>
           </form>
         </section>
 
@@ -148,7 +165,6 @@
         </button>
       </div>
 
-      <!-- Área de Gravação do ADMIN -->
       <div id="painel-admin-gravar-nota" class="painel-admin-nota hidden">
         <h4>Ajouter un commentaire audio (Admin)</h4>
         <div class="gravador-controles">
@@ -161,7 +177,6 @@
         <p id="status-gravacao-nota" class="status-msg">Microphone prêt.</p>
       </div>
 
-      <!-- Lista de Notas Existentes -->
       <div class="secao-historico-notas">
         <h4>Commentaires ajoutés</h4>
         <ul id="lista-notas-audio" class="lista-gravacoes"></ul>
@@ -169,10 +184,10 @@
     </div>
   </dialog>
 
-  <!-- Modal de Confirmação de Exclusão -->
+  <!-- Modal de Confirmação de Ações (Exclusão) -->
   <dialog id="modal-confirmacao" class="modal-dialog">
     <div class="modal-conteudo">
-      <div class="modal-icone">
+      <div class="modal-icone icone-perigo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 6h18"></path>
           <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
@@ -181,11 +196,23 @@
           <line x1="14" y1="11" x2="14" y2="17"></line>
         </svg>
       </div>
-      <h3>Confirmer la suppression</h3>
-      <p id="modal-mensagem">Êtes-vous sûr de vouloir supprimer cet élément ?</p>
+      <h3>Confirmation</h3>
+      <p id="modal-mensagem">Êtes-vous sûr de vouloir continuer ?</p>
       <div class="modal-acoes">
         <button type="button" id="btn-modal-cancelar" class="btn-secundario">Annuler</button>
         <button type="button" id="btn-modal-confirmar" class="btn-danger">Supprimer</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal Global de Alertas e Notificações Customizado -->
+  <dialog id="modal-alerta" class="modal-dialog">
+    <div class="modal-conteudo">
+      <div id="modal-alerta-icone" class="modal-icone"></div>
+      <h3 id="modal-alerta-titulo">Information</h3>
+      <p id="modal-alerta-mensagem"></p>
+      <div class="modal-acoes">
+        <button type="button" id="btn-modal-alerta-fechar" class="btn-full">Compris</button>
       </div>
     </div>
   </dialog>

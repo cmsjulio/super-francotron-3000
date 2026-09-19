@@ -7,6 +7,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // DOM Elements: Autenticação
 const secaoLogin = document.getElementById('secao-login');
 const authFormTitle = document.getElementById('auth-form-title');
+const btnLoginGoogle = document.getElementById('btn-login-google');
 const formLogin = document.getElementById('form-login');
 const loginEmail = document.getElementById('login-email');
 const loginSenha = document.getElementById('login-senha');
@@ -51,6 +52,13 @@ const modalMensagem = document.getElementById('modal-mensagem');
 const btnModalCancelar = document.getElementById('btn-modal-cancelar');
 const btnModalConfirmar = document.getElementById('btn-modal-confirmar');
 
+// DOM Elements: Modal Global de Alerta
+const modalAlerta = document.getElementById('modal-alerta');
+const modalAlertaIcone = document.getElementById('modal-alerta-icone');
+const modalAlertaTitulo = document.getElementById('modal-alerta-titulo');
+const modalAlertaMensagem = document.getElementById('modal-alerta-mensagem');
+const btnModalAlertaFechar = document.getElementById('btn-modal-alerta-fechar');
+
 // DOM Elements: Modal de Notas de Áudio
 const modalNotas = document.getElementById('modal-notas');
 const modalNotaId = document.getElementById('modal-nota-id');
@@ -89,6 +97,48 @@ let segundosNota = 0;
 
 // Callback de Exclusão
 let acaoExclusaoPendente = null;
+
+// --- MODAL DE ALERTA GLOBAL ---
+
+function exibirAlerta(titulo, mensagem, tipo = 'info') {
+  modalAlertaTitulo.innerText = titulo;
+  modalAlertaMensagem.innerText = mensagem;
+  modalAlertaIcone.className = 'modal-icone';
+
+  if (tipo === 'sucesso') {
+    modalAlertaIcone.classList.add('icone-sucesso');
+    modalAlertaIcone.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    `;
+  } else if (tipo === 'erro') {
+    modalAlertaIcone.classList.add('icone-perigo');
+    modalAlertaIcone.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    `;
+  } else {
+    modalAlertaIcone.classList.add('icone-info');
+    modalAlertaIcone.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+    `;
+  }
+
+  modalAlerta.showModal();
+}
+
+btnModalAlertaFechar.addEventListener('click', () => {
+  modalAlerta.close();
+});
 
 // --- INICIALIZAÇÃO DE SESSÃO ---
 
@@ -134,7 +184,22 @@ async function aplicarSessao(session) {
   await carregarTextos();
 }
 
-// Alternância entre Login e Cadastro
+// Login Social com Google OAuth
+btnLoginGoogle.addEventListener('click', async () => {
+  try {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) throw error;
+  } catch (err) {
+    exibirAlerta("Erreur Google", err.message, "erro");
+  }
+});
+
+// Alternância entre Login e Cadastro Manual
 btnToggleAuth.addEventListener('click', () => {
   modoCriacaoConta = !modoCriacaoConta;
   if (modoCriacaoConta) {
@@ -160,18 +225,39 @@ formLogin.addEventListener('submit', async (e) => {
     if (modoCriacaoConta) {
       const { data, error } = await supabaseClient.auth.signUp({ email, password });
       if (error) throw error;
+
       if (data.session) {
         await aplicarSessao(data.session);
       } else {
-        alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
+        exibirAlerta(
+          "Confirmation Requise",
+          "Compte créé ! Vous avez reçu un message de Supabase Auth par email. Veuillez cliquer sur le lien de confirmation avant de pouvoir vous connecter au système.",
+          "sucesso"
+        );
         btnToggleAuth.click();
       }
     } else {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("Email not confirmed")) {
+          exibirAlerta(
+            "Email Non Confirmé",
+            "Votre compte n'est pas encore activé. Veuillez vérifier votre boîte de réception et confirmer le message envoyé par Supabase Auth.",
+            "info"
+          );
+        } else if (error.message.includes("Invalid login credentials")) {
+          exibirAlerta(
+            "Erreur d'authentification",
+            "Identifiants incorrects. Veuillez vérifier votre adresse email et votre mot de passe.",
+            "erro"
+          );
+        } else {
+          exibirAlerta("Erreur de connexion", error.message, "erro");
+        }
+      }
     }
   } catch (error) {
-    alert(`Erreur : ${error.message}`);
+    exibirAlerta("Erreur", error.message, "erro");
   } finally {
     btnLogin.disabled = false;
     btnLogin.innerText = modoCriacaoConta ? "S'inscrire" : "Se connecter";
@@ -345,7 +431,7 @@ btnOuvirTtsExercicio.addEventListener('click', async () => {
     audioPlayer.src = url;
     await audioPlayer.play();
   } catch (e) {
-    alert("Impossible de lire l'audio de référence.");
+    exibirAlerta("Erreur", "Impossible de lire l'audio de référence.", "erro");
   } finally {
     btnOuvirTtsExercicio.innerText = original;
     btnOuvirTtsExercicio.disabled = false;
@@ -373,7 +459,7 @@ async function tocarAudioBiblioteca(id, btnElement) {
     audioPlayer.src = url;
     await audioPlayer.play();
   } catch (e) {
-    alert("Impossible de lire l'audio.");
+    exibirAlerta("Erreur", "Impossible de lire l'audio.", "erro");
   } finally {
     btnElement.innerText = original;
     btnElement.disabled = false;
@@ -416,7 +502,7 @@ btnOuvirTtsModal.addEventListener('click', async () => {
     audioPlayer.src = url;
     await audioPlayer.play();
   } catch (e) {
-    alert("Impossible de lire l'audio de référence.");
+    exibirAlerta("Erreur", "Impossible de lire l'audio de référence.", "erro");
   } finally {
     btnOuvirTtsModal.innerText = original;
     btnOuvirTtsModal.disabled = false;
@@ -487,7 +573,7 @@ function renderizarListaNotas(notas) {
         audioElement.dataset.loaded = "true";
         await audioElement.play();
       } catch (err) {
-        alert("Impossible de lire le commentaire audio.");
+        exibirAlerta("Erreur", "Impossible de lire le commentaire audio.", "erro");
       }
     });
 
@@ -505,7 +591,7 @@ btnGravarNota.addEventListener('click', async () => {
 
 async function iniciarGravacaoNota() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert("Microphone non disponible.");
+    exibirAlerta("Erreur", "Microphone non disponible dans votre navigateur.", "erro");
     return;
   }
 
@@ -540,7 +626,7 @@ async function iniciarGravacaoNota() {
     }, 1000);
 
   } catch (err) {
-    alert("Accès au microphone refusé.");
+    exibirAlerta("Erreur", "Accès au microphone refusé.", "erro");
   }
 }
 
@@ -591,7 +677,7 @@ function solicitarExclusaoNota(notaId) {
         await carregarNotasTexto(textoAtivoModalNotas.id);
       }
     } catch (e) {
-      alert("Erreur lors de la suppression de la note.");
+      exibirAlerta("Erreur", "Erreur lors de la suppression de la note.", "erro");
     }
   });
 }
@@ -608,7 +694,7 @@ btnGravar.addEventListener('click', async () => {
 
 async function iniciarGravacao() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert("Votre navigateur ne supporte pas l'enregistrement audio direct.");
+    exibirAlerta("Erreur", "Votre navigateur ne supporte pas l'enregistrement audio direct.", "erro");
     return;
   }
 
@@ -643,7 +729,7 @@ async function iniciarGravacao() {
     }, 1000);
 
   } catch (err) {
-    alert("Accès au microphone refusé ou non disponible.");
+    exibirAlerta("Erreur", "Accès au microphone refusé ou non disponible.", "erro");
   }
 }
 
@@ -737,7 +823,7 @@ function renderizarHistoricoGravacoes(gravacoes) {
         audioElement.dataset.loaded = "true";
         await audioElement.play();
       } catch (err) {
-        alert("Impossible de lire votre enregistrement.");
+        exibirAlerta("Erreur", "Impossible de lire votre enregistrement.", "erro");
       }
     });
 
@@ -792,7 +878,7 @@ function solicitarExclusaoTexto(id) {
         }
       }
     } catch (e) {
-      alert("Erreur lors de la suppression.");
+      exibirAlerta("Erreur", "Erreur lors de la suppression.", "erro");
     }
   });
 }
@@ -808,7 +894,7 @@ function solicitarExclusaoGravacao(gravacaoId) {
         await carregarGravacoesUsuario(textoAtivoExercicio.id);
       }
     } catch (e) {
-      alert("Erreur lors de la suppression de l'enregistrement.");
+      exibirAlerta("Erreur", "Erreur lors de la suppression de l'enregistrement.", "erro");
     }
   });
 }
@@ -839,10 +925,10 @@ formTexto.addEventListener('submit', async (e) => {
       textosJaCarregados = false;
       await carregarTextos();
     } else {
-      alert('Erreur lors de la sauvegarde (Permission refusée).');
+      exibirAlerta("Accès Refusé", "Seuls les administrateurs peuvent enregistrer des textes.", "erro");
     }
   } catch (err) {
-    alert('Erreur de connexion.');
+    exibirAlerta("Erreur Réseau", "Erreur de connexion avec le serveur.", "erro");
   } finally {
     btnSalvar.disabled = false;
     btnSalvar.innerText = 'Ajouter à la bibliothèque';
