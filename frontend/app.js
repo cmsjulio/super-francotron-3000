@@ -6,9 +6,12 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // DOM Elements: Autenticação
 const secaoLogin = document.getElementById('secao-login');
+const authFormTitle = document.getElementById('auth-form-title');
 const formLogin = document.getElementById('form-login');
 const loginEmail = document.getElementById('login-email');
 const loginSenha = document.getElementById('login-senha');
+const btnLogin = document.getElementById('btn-login');
+const btnToggleAuth = document.getElementById('btn-toggle-auth');
 
 const authInfo = document.getElementById('auth-info');
 const userEmailSpan = document.getElementById('user-email');
@@ -68,6 +71,7 @@ let textosMemoria = [];
 let textoAtivoExercicio = null;
 let textoAtivoModalNotas = null;
 let textosJaCarregados = false;
+let modoCriacaoConta = false;
 
 // Estado do Gravador (Exercícios)
 let mediaRecorder = null;
@@ -130,14 +134,47 @@ async function aplicarSessao(session) {
   await carregarTextos();
 }
 
+// Alternância entre Login e Cadastro
+btnToggleAuth.addEventListener('click', () => {
+  modoCriacaoConta = !modoCriacaoConta;
+  if (modoCriacaoConta) {
+    authFormTitle.innerText = "Créer un compte";
+    btnLogin.innerText = "S'inscrire";
+    btnToggleAuth.innerText = "Déjà un compte ? Se connecter";
+  } else {
+    authFormTitle.innerText = "Connexion";
+    btnLogin.innerText = "Se connecter";
+    btnToggleAuth.innerText = "Pas encore de compte ? S'inscrire";
+  }
+});
+
 formLogin.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = loginEmail.value.trim();
   const password = loginSenha.value;
 
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) {
-    alert(`Erreur de connexion : ${error.message}`);
+  btnLogin.disabled = true;
+  btnLogin.innerText = "Chargement...";
+
+  try {
+    if (modoCriacaoConta) {
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.session) {
+        await aplicarSessao(data.session);
+      } else {
+        alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
+        btnToggleAuth.click();
+      }
+    } else {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    }
+  } catch (error) {
+    alert(`Erreur : ${error.message}`);
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.innerText = modoCriacaoConta ? "S'inscrire" : "Se connecter";
   }
 });
 
@@ -286,7 +323,6 @@ async function selecionarTextoParaExercicio(id) {
   await carregarGravacoesUsuario(item.id);
 }
 
-// Botão de Notes na aba Pratique
 btnNotasExercicio.addEventListener('click', () => {
   if (textoAtivoExercicio) {
     abrirModalNotas(textoAtivoExercicio.id);
@@ -344,7 +380,7 @@ async function tocarAudioBiblioteca(id, btnElement) {
   }
 }
 
-// --- MODAL DE NOTAS / COMENTÁRIOS DO ADMIN ---
+// --- MODAL DE NOTAS ---
 
 async function abrirModalNotas(id) {
   const item = textosMemoria.find(t => String(t.id) === String(id));
@@ -364,7 +400,6 @@ async function abrirModalNotas(id) {
   modalNotas.showModal();
 }
 
-// Ouvir TTS diretamente do modal
 btnOuvirTtsModal.addEventListener('click', async () => {
   if (!textoAtivoModalNotas || !sessaoAtual) return;
   const original = btnOuvirTtsModal.innerText;
@@ -460,7 +495,6 @@ function renderizarListaNotas(notas) {
   });
 }
 
-// Gravação de Notas pelo Admin
 btnGravarNota.addEventListener('click', async () => {
   if (!gravandoNota) {
     await iniciarGravacaoNota();
@@ -562,7 +596,7 @@ function solicitarExclusaoNota(notaId) {
   });
 }
 
-// --- GRAVADOR DE VOZ (PRATIQUE / EXERCÍCIOS) ---
+// --- GRAVADOR DE VOZ (PRATIQUE) ---
 
 btnGravar.addEventListener('click', async () => {
   if (!gravando) {

@@ -27,14 +27,19 @@
       </div>
     </header>
 
-    <!-- Tela de Login -->
+    <!-- Tela de Autenticação (Login / Cadastro) -->
     <section id="secao-login" class="card">
-      <h2>Connexion</h2>
+      <h2 id="auth-form-title">Connexion</h2>
       <form id="form-login">
         <input type="email" id="login-email" placeholder="Email" required />
         <input type="password" id="login-senha" placeholder="Mot de passe" required />
         <button type="submit" id="btn-login">Se connecter</button>
       </form>
+      <div style="text-align: center; margin-top: 0.25rem;">
+        <button type="button" id="btn-toggle-auth" class="btn-secundario" style="border: none; text-decoration: underline;">
+          Pas encore de compte ? S'inscrire
+        </button>
+      </div>
     </section>
 
     <!-- Painel Principal Autenticado -->
