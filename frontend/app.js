@@ -25,7 +25,6 @@ const secaoAdmin = document.getElementById('secao-admin');
 const formTexto = document.getElementById('form-texto');
 const textoInput = document.getElementById('texto-input');
 const btnSalvar = document.getElementById('btn-salvar');
-const btnAtualizar = document.getElementById('btn-atualizar');
 const listaTextos = document.getElementById('lista-textos');
 const audioPlayer = document.getElementById('audio-player');
 const playerLabel = document.getElementById('player-label');
@@ -170,7 +169,6 @@ async function carregarTextos() {
     perfilAtual = dados.user_role || 'USER';
     textosMemoria = dados.textos || [];
 
-    // Mapeamento dos papéis para francês
     if (perfilAtual === 'ADMIN') {
       userBadge.innerText = 'ADMINISTRATEUR';
       userBadge.classList.add('admin');
@@ -565,11 +563,6 @@ formTexto.addEventListener('submit', async (e) => {
     btnSalvar.disabled = false;
     btnSalvar.innerText = 'Ajouter à la bibliothèque';
   }
-});
-
-btnAtualizar.addEventListener('click', () => {
-  textosJaCarregados = false;
-  carregarTextos();
 });
 
 function escapeHtml(str) {
