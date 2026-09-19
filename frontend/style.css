@@ -47,10 +47,34 @@ header {
   width: 100%;
 }
 
+.titulo-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 header h1 {
-  font-size: 1.35rem;
-  letter-spacing: -0.5px;
-  word-break: break-word;
+  font-size: clamp(0.85rem, 4.2vw, 1.4rem);
+  letter-spacing: -0.3px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.bandeira-titulo {
+  width: clamp(16px, 4.5vw, 24px);
+  height: clamp(11px, 3.1vw, 16px);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .auth-bar {
@@ -115,7 +139,7 @@ header h1 {
   color: var(--danger);
 }
 
-/* Formulário de Login com botão em largura total */
+/* Formulário de Login */
 .auth-formulario {
   display: flex;
   flex-direction: column;
@@ -697,8 +721,20 @@ audio {
     align-items: center;
   }
 
+  .titulo-container {
+    width: auto;
+    justify-content: flex-start;
+  }
+
   header h1 {
     font-size: 1.8rem;
+    text-align: left;
+    justify-content: flex-start;
+  }
+
+  .bandeira-titulo {
+    width: 28px;
+    height: 19px;
   }
 
   .auth-bar {
