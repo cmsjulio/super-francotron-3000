@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Super Francotron 3000</title>
+  <title>SF TROIS MILLE!!!!!!</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 2'><rect width='1' height='2' fill='%23002654'/><rect width='1' height='2' x='1' fill='%23ffffff'/><rect width='1' height='2' x='2' fill='%23ed2939'/></svg>">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -11,11 +12,10 @@
   <main class="container">
     <header>
       <div>
-        <h1>Super Francotron 3000</h1>
-        <p>Synthèse vocale locale (Piper TTS & Supabase)</p>
+        <h1>SUPER FRANCOTRON 3000!!!!!</h1>
       </div>
       <div id="auth-info" class="auth-bar hidden">
-        <span id="user-badge" class="badge">USER</span>
+        <span id="user-badge" class="badge">ÉLÈVE</span>
         <span id="user-email"></span>
         <button id="btn-logout" class="btn-secundario">Déconnexion</button>
       </div>
@@ -31,34 +31,93 @@
       </form>
     </section>
 
-    <!-- Painel Principal (Aparece após logar) -->
+    <!-- Painel Principal Autenticado -->
     <div id="app-painel" class="hidden">
-      <!-- Painel visível apenas para ADMIN -->
-      <section id="secao-admin" class="card hidden">
-        <h2>Nouveau Texte (Admin)</h2>
-        <form id="form-texto">
-          <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
-          <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
-        </form>
-      </section>
+      <!-- Navegação por Abas -->
+      <nav class="nav-abas">
+        <button type="button" class="tab-btn active" data-tab="aba-biblioteca">Bibliothèque</button>
+        <button type="button" class="tab-btn" data-tab="aba-exercicios">★ Atelier de Pratique</button>
+      </nav>
 
-      <section class="card">
-        <div class="card-header">
-          <h2>Bibliothèque de Textes</h2>
-          <button id="btn-atualizar" class="btn-secundario">Rafraîchir</button>
+      <!-- ABA 1: BIBLIOTECA -->
+      <div id="aba-biblioteca" class="conteudo-aba active">
+        <!-- Inserção de Textos (Visível apenas para ADMINISTRATEUR) -->
+        <section id="secao-admin" class="card hidden">
+          <h2>Nouveau Texte (Admin)</h2>
+          <form id="form-texto">
+            <textarea id="texto-input" rows="4" placeholder="Écrivez ou collez votre texte ici..." required></textarea>
+            <button type="submit" id="btn-salvar">Ajouter à la bibliothèque</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Bibliothèque de Textes</h2>
+            <button id="btn-atualizar" class="btn-secundario">Rafraîchir</button>
+          </div>
+
+          <div id="status-player" class="player-container">
+            <span id="player-label">Sélectionnez un texte ci-dessous :</span>
+            <audio id="audio-player" controls preload="none"></audio>
+          </div>
+
+          <ul id="lista-textos" class="lista"></ul>
+        </section>
+      </div>
+
+      <!-- ABA 2: ATELIER DE PRATIQUE (EXERCÍCIOS) -->
+      <div id="aba-exercicios" class="conteudo-aba">
+        <div class="layout-exercicios">
+          <!-- Coluna Esquerda: Escolha de Texto -->
+          <aside class="coluna-textos card">
+            <div class="card-header">
+              <h2>Textes d'exercice</h2>
+            </div>
+            <ul id="lista-exercicio-textos" class="lista-mini"></ul>
+          </aside>
+
+          <!-- Coluna Direita: Área de Treino e Gravação -->
+          <section class="coluna-treino">
+            <div class="card" id="painel-texto-ativo">
+              <div class="card-header">
+                <span id="exercicio-id-badge" class="badge">#ID --</span>
+                <button type="button" id="btn-ouvir-tts-exercicio" class="btn-secundario" disabled>
+                  🔊 Écouter la voix de référence
+                </button>
+              </div>
+              <p id="exercicio-texto-display" class="texto-leitura-destaque">
+                Sélectionnez un texte dans la colonne de gauche pour commencer à pratiquer.
+              </p>
+            </div>
+
+            <!-- Painel de Gravação do Usuário -->
+            <div class="card" id="painel-gravacao">
+              <h2>Votre Enregistrement</h2>
+              <div class="gravador-controles">
+                <button type="button" id="btn-gravar" class="btn-rec" disabled>
+                  <span class="rec-bullet"></span>
+                  <span id="btn-gravar-label">Commencer l'enregistrement</span>
+                </button>
+                <span id="gravador-timer" class="timer-display">00:00</span>
+              </div>
+              <p id="gravador-status" class="status-msg">Microphone prêt.</p>
+            </div>
+
+            <!-- Histórico de Gravações do Usuário para o texto ativo -->
+            <div class="card">
+              <div class="card-header">
+                <h2>Vos Essais Enregistrés</h2>
+                <span id="contador-gravacoes" class="badge">0 enregistrements</span>
+              </div>
+              <ul id="lista-minhas-gravacoes" class="lista-gravacoes"></ul>
+            </div>
+          </section>
         </div>
-
-        <div id="status-player" class="player-container">
-          <span id="player-label">Sélectionnez un texte ci-dessous :</span>
-          <audio id="audio-player" controls preload="none"></audio>
-        </div>
-
-        <ul id="lista-textos" class="lista"></ul>
-      </section>
+      </div>
     </div>
   </main>
 
-  <!-- Modal de Confirmação -->
+  <!-- Modal de Confirmação Unificado -->
   <dialog id="modal-confirmacao" class="modal-dialog">
     <div class="modal-conteudo">
       <div class="modal-icone">

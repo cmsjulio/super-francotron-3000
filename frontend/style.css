@@ -7,6 +7,7 @@
   --primary-hover: #2563eb;
   --danger: #ef4444;
   --danger-hover: #dc2626;
+  --success: #10b981;
   --border: #334155;
   --item-bg: #0f172a;
 }
@@ -25,7 +26,7 @@ body {
 }
 
 .container {
-  max-width: 680px;
+  max-width: 980px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -70,6 +71,47 @@ header p {
 .badge.admin {
   background-color: #065f46;
   color: #34d399;
+}
+
+/* Navegação por Abas */
+.nav-abas {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.6rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 0;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: white;
+  background-color: var(--primary);
+}
+
+.conteudo-aba {
+  display: none;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.conteudo-aba.active {
+  display: flex;
 }
 
 .card {
@@ -122,7 +164,7 @@ button:hover {
 }
 
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -132,9 +174,10 @@ button:disabled {
   color: var(--text-muted);
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
+  margin: 0;
 }
 
-.btn-secundario:hover {
+.btn-secundario:hover:not(:disabled) {
   background: var(--border);
   color: var(--text-main);
 }
@@ -148,6 +191,7 @@ button:disabled {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
+  margin: 0;
 }
 
 .btn-danger:hover {
@@ -155,7 +199,7 @@ button:disabled {
 }
 
 .player-container {
-  margin: 1rem 0;
+  margin: 0.5rem 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -176,7 +220,7 @@ audio {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .item-texto {
@@ -228,8 +272,8 @@ audio {
 }
 
 .item-corpo {
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.95rem;
+  line-height: 1.5;
   color: var(--text-main);
   word-break: break-word;
 }
@@ -239,6 +283,172 @@ audio {
   margin-top: 0.25rem;
   font-size: 0.8rem;
   padding: 0.35rem 0.75rem;
+}
+
+/* Layout dos Exercícios */
+.layout-exercicios {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .layout-exercicios {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lista-mini {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.item-exercicio-nav {
+  padding: 0.75rem;
+  background: var(--item-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.item-exercicio-nav:hover {
+  border-color: var(--primary);
+}
+
+.item-exercicio-nav.active {
+  border-color: var(--primary);
+  background-color: rgba(59, 130, 246, 0.12);
+}
+
+.item-exercicio-nav .nav-id {
+  font-size: 0.75rem;
+  color: var(--primary);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.item-exercicio-nav .nav-snippet {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.coluna-treino {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.texto-leitura-destaque {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  background-color: var(--item-bg);
+  padding: 1.25rem;
+  border-radius: 6px;
+  border-left: 4px solid var(--primary);
+}
+
+/* Controles de Gravação */
+.gravador-controles {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.btn-rec {
+  background: var(--danger);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.btn-rec:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.btn-rec.gravando {
+  background: #b91c1c;
+  animation: pulse 1.2s infinite;
+}
+
+.rec-bullet {
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.timer-display {
+  font-size: 1.3rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.status-msg {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+/* Lista de Gravações do Usuário */
+.lista-gravacoes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item-gravacao {
+  position: relative;
+  background: var(--item-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item-gravacao-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 2rem;
+}
+
+.gravacao-data {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.gravacao-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--success);
 }
 
 .hidden {

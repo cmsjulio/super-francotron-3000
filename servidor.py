@@ -2,7 +2,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, UploadFile, File
 from fastapi.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -18,14 +18,13 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 app = FastAPI(title="Super Francotron 3000")
 security = HTTPBearer()
 
-# Semáforo assíncrono para limitar o consumo de CPU do Piper a 1 síntese simultânea
 TTS_LOCK = asyncio.Lock()
 
 
 async def supabase_request(
-    endpoint: str, method: str = "GET", json_data: dict = None
+    endpoint: str, method: str = "GET", json_data: dict = None, headers_extras: dict = None
 ):
-    """Executa requisições REST assíncronas no Supabase."""
+    """Executa requisições REST assíncronas no Supabase com Service Role."""
     url = f"{SUPABASE_URL}/rest/v1/{endpoint.lstrip('/')}"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -33,7 +32,10 @@ async def supabase_request(
         "Content-Type": "application/json",
         "User-Agent": "SuperFrancotron/2.0",
     }
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    if headers_extras:
+        headers.update(headers_extras)
+
+    async with httpx.AsyncClient(timeout=25.0) as client:
         resp = await client.request(
             method, url, headers=headers, json=json_data
         )
@@ -75,7 +77,7 @@ class TextoInput(BaseModel):
     texto: str
 
 
-# --- ENDPOINTS DA API ---
+# --- ENDPOINTS DE BIBLIOTECA (TEXTOS GERAIS) ---
 
 
 @app.get("/api/textos")
@@ -133,7 +135,6 @@ async def tocar_audio(id: int, user: dict = Depends(get_current_user)):
     registro = registros[0]
     audio_dado = registro.get("audio_blob")
 
-    # Caso já exista em cache no Supabase
     if audio_dado:
         if isinstance(audio_dado, str):
             audio_bytes = bytes.fromhex(
@@ -149,7 +150,6 @@ async def tocar_audio(id: int, user: dict = Depends(get_current_user)):
                 headers={"Accept-Ranges": "bytes"},
             )
 
-    # Caso precise sintetizar com Piper de forma não bloqueante
     async with TTS_LOCK:
         recheck = await supabase_request(
             f"textos?id=eq.{id}&select=audio_blob"
@@ -160,7 +160,6 @@ async def tocar_audio(id: int, user: dict = Depends(get_current_user)):
                 hex_val[2:] if hex_val.startswith("\\x") else hex_val
             )
         else:
-            # Executa a geração em thread pool do SO sem travar o loop do FastAPI
             audio_bytes = await asyncio.to_thread(
                 tts_service.sintetizar_audio_bytes, registro["texto"]
             )
@@ -176,6 +175,82 @@ async def tocar_audio(id: int, user: dict = Depends(get_current_user)):
         media_type="audio/wav",
         headers={"Accept-Ranges": "bytes"},
     )
+
+
+# --- ENDPOINTS DE EXERCÍCIOS (GRAVAÇÕES DO USUÁRIO) ---
+
+
+@app.get("/api/exercicios/gravacoes")
+async def listar_gravacoes_exercicio(texto_id: int, user: dict = Depends(get_current_user)):
+    """Retorna metadados das gravações do usuário para um determinado texto."""
+    endpoint = (
+        f"exercicios_gravacoes?texto_id=eq.{texto_id}&user_id=eq.{user['id']}"
+        f"&select=id,created_at,texto_id&order=created_at.desc"
+    )
+    gravacoes = await supabase_request(endpoint)
+    return {"gravacoes": gravacoes or []}
+
+
+@app.post("/api/exercicios/gravacoes", status_code=status.HTTP_201_CREATED)
+async def salvar_gravacao_exercicio(
+    texto_id: int,
+    audio: UploadFile = File(...),
+    user: dict = Depends(get_current_user)
+):
+    """Recebe o áudio gravado no microfone do navegador e salva como BLOB/bytea."""
+    conteudo_audio = await audio.read()
+    if not conteudo_audio:
+        raise HTTPException(status_code=400, detail="Arquivo de áudio vazio.")
+
+    hex_payload = "\\x" + conteudo_audio.hex()
+    dados = {
+        "texto_id": texto_id,
+        "user_id": user["id"],
+        "audio_blob": hex_payload
+    }
+    
+    headers = {"Prefer": "return=representation"}
+    nova_gravacao = await supabase_request(
+        "exercicios_gravacoes",
+        method="POST",
+        json_data=dados,
+        headers_extras=headers
+    )
+    return nova_gravacao[0] if nova_gravacao else {}
+
+
+@app.get("/api/exercicios/gravacoes/{gravacao_id}/audio")
+async def ouvir_gravacao_exercicio(gravacao_id: int, user: dict = Depends(get_current_user)):
+    """Retorna o áudio da gravação do próprio usuário."""
+    endpoint = (
+        f"exercicios_gravacoes?id=eq.{gravacao_id}&user_id=eq.{user['id']}"
+        f"&select=id,audio_blob"
+    )
+    registros = await supabase_request(endpoint)
+    if not registros:
+        raise HTTPException(status_code=404, detail="Gravação não encontrada ou acesso negado.")
+
+    audio_hex = registros[0].get("audio_blob", "")
+    if isinstance(audio_hex, str):
+        audio_bytes = bytes.fromhex(
+            audio_hex[2:] if audio_hex.startswith("\\x") else audio_hex
+        )
+    else:
+        audio_bytes = bytes(audio_hex)
+
+    return Response(
+        content=audio_bytes,
+        media_type="audio/webm",
+        headers={"Accept-Ranges": "bytes"}
+    )
+
+
+@app.delete("/api/exercicios/gravacoes/{gravacao_id}")
+async def deletar_gravacao_exercicio(gravacao_id: int, user: dict = Depends(get_current_user)):
+    """Permite ao usuário deletar sua própria gravação."""
+    endpoint = f"exercicios_gravacoes?id=eq.{gravacao_id}&user_id=eq.{user['id']}"
+    await supabase_request(endpoint, method="DELETE")
+    return {"status": "deletado", "id": gravacao_id}
 
 
 # Entrega dos arquivos estáticos do frontend
